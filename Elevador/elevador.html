@@ -1,0 +1,1793 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Puerta de Elevador</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+ 
+  :root {
+    --bg: #0a0e1a;
+    --panel: #0f1628;
+    --card: #141c35;
+    --border: #1e2d5a;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --green: #00ff88;
+    --red: #ff3366;
+    --yellow: #ffcc00;
+    --text: #c8d8f0;
+    --muted: #4a5c8a;
+    --door-color: #2a3a6e;
+    --door-edge: #1a2550;
+    --door-shine: #3a4d88;
+    --door-inner: #1e2d5a;
+    --metal: #8899bb;
+    --metal-dark: #667799;
+  }
+ 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+ 
+  /* Header */
+  header {
+    background: linear-gradient(90deg, var(--panel), #0a1020);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+ 
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+ 
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+ 
+  .logo h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+ 
+  .logo span {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    display: block;
+  }
+ 
+  .status-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+ 
+  .status-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+ 
+  .status-pill .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: blink 2s ease-in-out infinite;
+  }
+ 
+  .status-pill .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-pill .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+ 
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+ 
+  /* Main layout */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 0;
+    height: calc(100vh - 62px);
+  }
+ 
+  /* Left: Elevator 3D */
+  .elevator-section {
+    background: radial-gradient(ellipse at center, #0d1530 0%, #070a12 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 20px;
+  }
+ 
+  .elevator-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(30,45,90,.15) 39px, rgba(30,45,90,.15) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(30,45,90,.15) 39px, rgba(30,45,90,.15) 40px);
+  }
+ 
+  .section-title {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+ 
+  .floor-label {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+ 
+  /* 3D Elevator Scene */
+  .scene {
+    perspective: 900px;
+    perspective-origin: 50% 40%;
+    position: relative;
+    z-index: 1;
+  }
+ 
+  .elevator-3d {
+    width: 340px;
+    height: 480px;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(8deg) rotateY(-12deg);
+  }
+ 
+  /* Elevator shaft/frame */
+  .frame {
+    position: absolute;
+    width: 340px;
+    height: 480px;
+    border: 3px solid var(--metal);
+    border-radius: 4px;
+    background: transparent;
+    z-index: 5;
+    box-shadow:
+      inset 0 0 40px rgba(0,212,255,.05),
+      0 0 60px rgba(0,0,0,.8);
+  }
+ 
+  /* Metallic top bar */
+  .frame::before {
+    content: '';
+    position: absolute;
+    top: -18px; left: -3px; right: -3px;
+    height: 18px;
+    background: linear-gradient(180deg, #aabbdd 0%, var(--metal-dark) 100%);
+    border-radius: 4px 4px 0 0;
+    border: 2px solid #99aacc;
+  }
+ 
+  .frame::after {
+    content: '';
+    position: absolute;
+    bottom: -18px; left: -3px; right: -3px;
+    height: 18px;
+    background: linear-gradient(0deg, #99aacc 0%, var(--metal-dark) 100%);
+    border-radius: 0 0 4px 4px;
+    border: 2px solid #99aacc;
+  }
+ 
+  /* Interior back wall */
+  .interior {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #1a2448 0%, #0f1830 100%);
+    overflow: hidden;
+  }
+ 
+  /* Interior horizontal lines (panel seams) */
+  .interior::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(180deg, transparent 0px, transparent 79px, rgba(100,130,180,.2) 79px, rgba(100,130,180,.2) 80px);
+  }
+ 
+  /* Interior lighting */
+  .ceiling-light {
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 8px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    box-shadow: 0 0 40px 20px rgba(0,212,255,.15);
+    z-index: 3;
+  }
+ 
+  .floor-panel {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(180deg, #1a2040 0%, #0d1428 100%);
+    border-top: 1px solid rgba(100,130,180,.3);
+  }
+ 
+  /* 3D Left side panel */
+  .side-left {
+    position: absolute;
+    top: 0; left: -50px;
+    width: 50px;
+    height: 480px;
+    background: linear-gradient(90deg, #0a1020 0%, #141c35 100%);
+    border: 1px solid var(--border);
+    transform-origin: right center;
+    transform: rotateY(75deg);
+    z-index: 2;
+  }
+ 
+  /* 3D Top panel */
+  .top-panel {
+    position: absolute;
+    top: -30px; left: 0;
+    width: 340px;
+    height: 30px;
+    background: linear-gradient(180deg, #1a2448 0%, #141c35 100%);
+    border: 1px solid var(--border);
+    transform-origin: bottom center;
+    transform: rotateX(-75deg);
+    z-index: 2;
+  }
+ 
+  /* DOORS */
+  .doors-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    overflow: hidden;
+  }
+ 
+  /* Door opening gap (center line) */
+  .door-gap {
+    position: absolute;
+    left: 100%;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #000 0%, #111 100%);
+    z-index: 10;
+    transform: translateX(-50%);
+    box-shadow: 0 0 8px rgba(0,0,0,.8);
+  }
+ 
+  /* Right door (slides left to open) */
+  .door-right {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, var(--door-shine) 0%, var(--door-color) 40%, var(--door-inner) 100%);
+    border-left: 3px solid #000;
+    transform-origin: right center;
+    transition: transform 1.5s cubic-bezier(0.4,0,0.2,1);
+    overflow: hidden;
+    box-shadow: inset 4px 0 12px rgba(0,0,0,.6);
+  }
+ 
+  .door-right.open {
+    transform: translateX(100%);
+  }
+ 
+  /* Door surface details */
+  .door-panel {
+    position: absolute;
+    top: 30px; left: 15px; right: 15px; bottom: 30px;
+    border: 2px solid rgba(100,130,180,.3);
+    border-radius: 2px;
+  }
+ 
+  .door-panel::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 8px; right: 8px; bottom: 8px;
+    border: 1px solid rgba(100,130,180,.15);
+    border-radius: 1px;
+  }
+ 
+  .door-stripe {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 4px;
+    background: rgba(150,180,230,.15);
+  }
+  .door-stripe:nth-child(1) { left: 30%; }
+  .door-stripe:nth-child(2) { left: 60%; }
+ 
+  /* Door edge (3D side) */
+  .door-left::after {
+    content: '';
+    position: absolute;
+    right: -8px; top: 0; bottom: 0;
+    width: 8px;
+    background: linear-gradient(90deg, #0a1020, transparent);
+    z-index: 5;
+  }
+ 
+  /* Photocell beams (safety) */
+  .beam {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    height: 2px;
+    width: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,107,53,.6), transparent);
+    transform: translateX(-50%);
+    transition: width .5s;
+    z-index: 6;
+    border-radius: 2px;
+  }
+ 
+  .beam.active {
+    width: 80%;
+    box-shadow: 0 0 10px rgba(255,107,53,.4);
+  }
+ 
+  /* Display panel on door */
+  .door-display {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 12px var(--accent);
+    z-index: 8;
+    letter-spacing: 2px;
+  }
+ 
+  /* Floor number display at top of elevator */
+  .floor-display {
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 6px 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 24px;
+    color: var(--accent);
+    text-shadow: 0 0 16px var(--accent);
+    box-shadow: 0 0 20px rgba(0,212,255,.2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10;
+  }
+ 
+  .floor-arrow {
+    font-size: 14px;
+    opacity: .5;
+  }
+ 
+  /* Control panel on wall */
+  .wall-panel {
+    position: absolute;
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 12px;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+  }
+ 
+  .call-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 1px;
+  }
+ 
+  .call-btn:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,212,255,.3);
+    color: var(--accent);
+  }
+ 
+  .call-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(0,212,255,.6);
+  }
+ 
+  /* Ground line */
+  .ground {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--metal-dark), transparent);
+    z-index: 1;
+  }
+ 
+  /* Floor selector at bottom */
+  .floor-selector {
+    position: absolute;
+    bottom: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+ 
+  .floor-btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .2s;
+  }
+ 
+  .floor-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .floor-btn.active { background: rgba(0,212,255,.1); border-color: var(--accent); color: var(--accent); }
+ 
+  /* Control buttons */
+  .ctrl-row {
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+    position: absolute;
+    bottom: 56px;
+  }
+ 
+  .ctrl-btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all .2s;
+  }
+ 
+  .ctrl-btn.open { border-color: var(--green); color: var(--green); }
+  .ctrl-btn.open:hover { background: rgba(0,255,136,.1); box-shadow: 0 0 12px rgba(0,255,136,.3); }
+  .ctrl-btn.close { border-color: var(--red); color: var(--red); }
+  .ctrl-btn.close:hover { background: rgba(255,51,102,.1); box-shadow: 0 0 12px rgba(255,51,102,.3); }
+  .ctrl-btn.stop { border-color: var(--yellow); color: var(--yellow); }
+  .ctrl-btn.stop:hover { background: rgba(255,204,0,.1); box-shadow: 0 0 12px rgba(255,204,0,.3); }
+ 
+  /* === RIGHT PANEL: Circuit === */
+  .circuit-section {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+ 
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+ 
+  .panel-title {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+ 
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+ 
+  .panel-content::-webkit-scrollbar { width: 4px; }
+  .panel-content::-webkit-scrollbar-track { background: var(--bg); }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+ 
+  /* Circuit Diagram */
+  .circuit-container {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+ 
+  .circuit-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+ 
+  #circuit-svg {
+    width: 100%;
+    border-radius: 6px;
+    background: #080d18;
+    display: block;
+  }
+ 
+  /* Wire colors for circuit */
+  .wire-live { stroke: #ff6b35; stroke-width: 2.5; fill: none; }
+  .wire-neutral { stroke: #4488ff; stroke-width: 2.5; fill: none; }
+  .wire-signal { stroke: #ffcc00; stroke-width: 1.5; fill: none; stroke-dasharray: 4 2; }
+  .wire-ground { stroke: #44cc66; stroke-width: 2; fill: none; }
+  .wire-off { stroke: #2a3555; stroke-width: 2.5; fill: none; }
+  .wire-on { stroke: #ff6b35; stroke-width: 2.5; fill: none; filter: drop-shadow(0 0 3px #ff6b35); }
+  .wire-on-blue { stroke: #4488ff; stroke-width: 2.5; fill: none; filter: drop-shadow(0 0 3px #4488ff); }
+ 
+  .component-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    fill: #6a7da0;
+  }
+ 
+  .component-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    fill: #4a5c7a;
+  }
+ 
+  .node-dot { r: 4; }
+  .node-active { fill: #ff6b35; filter: drop-shadow(0 0 4px #ff6b35); }
+  .node-inactive { fill: #2a3555; }
+ 
+  /* Glow filters */
+  .glow-orange { filter: drop-shadow(0 0 6px rgba(255,107,53,.8)); }
+  .glow-blue { filter: drop-shadow(0 0 6px rgba(68,136,255,.8)); }
+  .glow-green { filter: drop-shadow(0 0 6px rgba(0,255,136,.8)); }
+ 
+  /* Ladder logic / PLC */
+  .ladder-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    padding: 16px 16px 0;
+  }
+ 
+  #ladder-svg {
+    width: 100%;
+    display: block;
+    background: #060b14;
+    border-radius: 6px;
+    margin: 0 16px 16px;
+    width: calc(100% - 32px);
+  }
+ 
+  /* Signals / I/O table */
+  .io-table {
+    margin: 0 16px 16px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+ 
+  .io-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 60px;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(30,45,90,.5);
+    font-size: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    transition: background .2s;
+  }
+ 
+  .io-row:last-child { border-bottom: none; }
+ 
+  .io-row:hover { background: rgba(0,212,255,.04); }
+ 
+  .io-header {
+    background: rgba(30,45,90,.6);
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 12px;
+  }
+ 
+  .io-addr { color: var(--accent); }
+  .io-name { color: var(--text); }
+  .io-state-on { color: var(--green); text-align: center; }
+  .io-state-off { color: var(--muted); text-align: center; }
+  .io-val { color: var(--yellow); text-align: right; font-size: 11px; }
+ 
+  /* LED indicator */
+  .led {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.2);
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  .led-on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .led-off { background: #1a2540; }
+  .led-warn { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .led-err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+ 
+  /* Timer / counter */
+  .timer-section {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+ 
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+ 
+  .metric-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 4px;
+  }
+ 
+  .metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+  }
+ 
+  .metric-value.green { color: var(--green); }
+  .metric-value.yellow { color: var(--yellow); }
+  .metric-value.red { color: var(--red); }
+ 
+  /* Log */
+  .log-section {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+ 
+  .log-header {
+    padding: 8px 16px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+ 
+  .log-entries {
+    height: 100px;
+    overflow-y: auto;
+    padding: 6px 16px;
+  }
+ 
+  .log-entries::-webkit-scrollbar { width: 3px; }
+  .log-entries::-webkit-scrollbar-thumb { background: var(--border); }
+ 
+  .log-entry {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(30,45,90,.3);
+    display: flex;
+    gap: 10px;
+  }
+ 
+  .log-time { color: var(--muted); min-width: 60px; }
+  .log-msg { color: var(--text); }
+  .log-msg.ok { color: var(--green); }
+  .log-msg.warn { color: var(--yellow); }
+  .log-msg.err { color: var(--red); }
+ 
+  /* Programming panel */
+  .prog-section {
+    border-top: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+ 
+  .prog-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 12px;
+  }
+ 
+  .param-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+ 
+  .param-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+ 
+  .param-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+ 
+  .param-input {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 6px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color .2s;
+  }
+ 
+  .param-input:focus { border-color: var(--accent); }
+ 
+  .apply-btn {
+    width: 100%;
+    padding: 9px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: rgba(0,212,255,.08);
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all .2s;
+  }
+ 
+  .apply-btn:hover {
+    background: rgba(0,212,255,.15);
+    box-shadow: 0 0 16px rgba(0,212,255,.2);
+  }
+ 
+  /* Separator */
+  .sep {
+    height: 1px;
+    background: var(--border);
+    margin: 0 16px;
+  }
+ 
+  /* Animations */
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+  @keyframes flowL { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-40} }
+  @keyframes flowR { 0%{stroke-dashoffset:40} 100%{stroke-dashoffset:0} }
+  @keyframes glow-pulse { 0%,100%{filter:drop-shadow(0 0 3px #ff6b35)} 50%{filter:drop-shadow(0 0 8px #ff6b35)} }
+ 
+  .flowing-live {
+    stroke: #ff6b35;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-dasharray: 8 4;
+    animation: flowL .7s linear infinite;
+  }
+ 
+  .flowing-blue {
+    stroke: #4488ff;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-dasharray: 8 4;
+    animation: flowR .7s linear infinite;
+  }
+ 
+  .contact-active rect { fill: rgba(0,255,136,.15); stroke: var(--green) !important; }
+  .coil-active circle { fill: rgba(255,107,53,.2); stroke: #ff6b35 !important; }
+ 
+  /* Responsive */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .circuit-section { height: 60vh; }
+  }
+</style>
+</head>
+<body>
+ 
+<header>
+<div class="logo-icon">
+  <img src="te.png" alt="Tec de Monterrey" style="height: 20px; width: auto;">
+</div>
+      <h1>SIMULADOR DE CONTROL DE LA PUERTA DEL ELEVADOR</h1>
+      <span>Control de Puerta</span>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="status-pill">
+      <div class="dot" id="sys-dot"></div>
+      <span id="sys-status">SISTEMA OK</span>
+    </div>
+    <div class="status-pill">
+      <div class="dot yellow" id="door-dot"></div>
+      <span id="door-status-txt">PUERTA CERRADA</span>
+    </div>
+    <div class="status-pill" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)">
+      <span id="clock-display">00:00:00</span>
+    </div>
+  </div>
+</header>
+ 
+<div class="main">
+  <!-- LEFT: 3D Elevator -->
+  <div class="elevator-section">
+    <div class="section-title">▸ VISTA / MODELO DE ELEVADOR</div>
+    <div class="floor-label" id="fl-label">PISO 1 ↑</div>
+ 
+    <div class="scene">
+      <div class="elevator-3d">
+        <!-- Floor display -->
+        <div class="floor-display">
+          <span class="floor-arrow" id="dir-arrow">▲</span>
+          <span id="floor-num">01</span>
+          <span class="floor-arrow" style="opacity:.2">▲</span>
+        </div>
+ 
+        <!-- Interior -->
+        <div class="interior">
+          <div class="ceiling-light"></div>
+          <div class="floor-panel"></div>
+        </div>
+ 
+        <!-- 3D sides -->
+        <div class="side-left"></div>
+        <div class="top-panel"></div>
+ 
+        <!-- Frame -->
+        <div class="frame"></div>
+ 
+        <!-- Doors -->
+        <div class="doors-wrapper">
+          <div class="door-gap"></div>
+ 
+          <!-- Left door (fixed) -->
+          <div class="door-left">
+            <div class="door-stripe"></div>
+            <div class="door-stripe"></div>
+            <div class="door-panel"></div>
+          </div>
+ 
+          <!-- Right door (moves left) -->
+          <div class="door-right" id="door-right">
+            <div class="door-stripe"></div>
+            <div class="door-stripe"></div>
+            <div class="door-panel"></div>
+          </div>
+        </div>
+ 
+        <!-- Photocell beam -->
+        <div class="beam" id="beam"></div>
+ 
+        <!-- Display on door center -->
+        <div class="door-display" id="door-display">▶◀</div>
+ 
+        <!-- Wall control panel -->
+        <div class="wall-panel">
+          <div class="call-btn" id="btn-open-door" title="Abrir puerta" onclick="openDoor()">◁▷</div>
+          <div class="call-btn" id="btn-close-door" title="Cerrar puerta" onclick="closeDoor()">▷◁</div>
+          <div style="width:30px;height:1px;background:var(--border)"></div>
+          <div class="call-btn" onclick="goFloor(1)">1</div>
+          <div class="call-btn" onclick="goFloor(2)">2</div>
+          <div class="call-btn" onclick="goFloor(3)">3</div>
+          <div class="call-btn" onclick="goFloor(4)">4</div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Main controls -->
+    <div class="ctrl-row">
+      <button class="ctrl-btn open" onclick="openDoor()">◁ ABRIR</button>
+      <button class="ctrl-btn stop" onclick="emergencyStop()">⚠ STOP</button>
+      <button class="ctrl-btn close" onclick="closeDoor()">CERRAR ▷</button>
+    </div>
+ 
+    <!-- Floor selector -->
+    <div class="floor-selector">
+      <span style="font-size:11px;color:var(--muted);letter-spacing:2px;align-self:center;font-family:'Share Tech Mono',monospace;">PISO:</span>
+      <button class="floor-btn active" id="fbtn-1" onclick="goFloor(1)">01</button>
+      <button class="floor-btn" id="fbtn-2" onclick="goFloor(2)">02</button>
+      <button class="floor-btn" id="fbtn-3" onclick="goFloor(3)">03</button>
+      <button class="floor-btn" id="fbtn-4" onclick="goFloor(4)">04</button>
+    </div>
+ 
+    <div class="ground"></div>
+  </div>
+ 
+  <!-- RIGHT: Circuit & PLC -->
+  <div class="circuit-section">
+    <div class="panel-header">
+      <div class="panel-title">⚡ Panel de Control &amp; Circuito</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent)">PLC-7200</div>
+    </div>
+ 
+    <div class="panel-content" id="panel-content">
+ 
+      <div class="sep"></div>
+ 
+      <!-- Circuit Diagram -->
+      <div class="circuit-container">
+        <div class="circuit-title">◈ Diagrama de Circuito Eléctrico</div>
+        <svg id="circuit-svg" viewBox="0 0 388 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background grid -->
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0f1828" stroke-width="0.5"/>
+            </pattern>
+            <filter id="glow-o">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glow-b">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect width="388" height="320" fill="url(#grid)"/>
+ 
+          <!-- Title -->
+          <text x="194" y="16" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="9" fill="#3a4d6a" letter-spacing="3">CIRCUITO CONTROL PUERTA ELEVADOR</text>
+ 
+          <!-- POWER SUPPLY (left) -->
+          <text x="12" y="42" class="component-label">L1</text>
+          <text x="12" y="52" class="component-value">120V</text>
+          <!-- Live bus (top) -->
+          <line id="bus-live" x1="30" y1="55" x2="358" y2="55" class="wire-off" id="wire-bus-live"/>
+ 
+          <!-- Neutral bus (bottom) -->
+          <text x="12" y="298" class="component-label">N</text>
+          <line id="bus-neu" x1="30" y1="295" x2="358" y2="295" class="wire-off"/>
+ 
+          <!-- Ground -->
+          <text x="12" y="310" class="component-label">GND</text>
+          <line x1="30" y1="308" x2="60" y2="308" stroke="#44cc66" stroke-width="1.5" fill="none"/>
+          <!-- Ground symbol -->
+          <line x1="60" y1="304" x2="60" y2="312" stroke="#44cc66" stroke-width="2" fill="none"/>
+          <line x1="55" y1="312" x2="65" y2="312" stroke="#44cc66" stroke-width="1.5" fill="none"/>
+          <line x1="57" y1="315" x2="63" y2="315" stroke="#44cc66" stroke-width="1" fill="none"/>
+          <line x1="59" y1="318" x2="61" y2="318" stroke="#44cc66" stroke-width=".5" fill="none"/>
+ 
+          <!-- === CIRCUIT BRANCHES === -->
+ 
+          <!-- BRANCH 1: Limit SW Open + Motor Open coil -->
+          <!-- Down from live bus -->
+          <line id="b1-top" x1="60" y1="55" x2="60" y2="75" class="wire-off"/>
+          <!-- LS_OPEN (normally closed contact) -->
+          <rect id="ls-open-box" x="45" y="75" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <line id="ls-open-l" x1="45" y1="85" x2="55" y2="85" class="wire-off"/>
+          <line id="ls-open-r" x1="65" y1="85" x2="75" y2="85" class="wire-off"/>
+          <text x="60" y="83" text-anchor="middle" class="component-label" font-size="7">LS-A</text>
+          <text x="60" y="104" text-anchor="middle" class="component-value">Lím.Abiert</text>
+          <!-- Continue right -->
+          <line id="b1-h" x1="75" y1="85" x2="120" y2="85" class="wire-off"/>
+          <!-- Push Button OPEN -->
+          <rect id="pb-open-box" x="120" y="75" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <line id="pb-open-l" x1="120" y1="85" x2="130" y2="85" class="wire-off"/>
+          <line id="pb-open-r" x1="140" y1="85" x2="150" y2="85" class="wire-off"/>
+          <text x="135" y="83" text-anchor="middle" class="component-label" font-size="7">PB-AB</text>
+          <text x="135" y="104" text-anchor="middle" class="component-value">Pulsador</text>
+          <!-- Seal contact (M-OPEN self-seal) -->
+          <line id="b1-h2" x1="150" y1="85" x2="200" y2="85" class="wire-off"/>
+          <rect id="seal-box" x="200" y="75" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="215" y="83" text-anchor="middle" class="component-label" font-size="7">CR-A</text>
+          <text x="215" y="104" text-anchor="middle" class="component-value">Sello</text>
+          <!-- Right to Motor Coil OPEN -->
+          <line id="b1-h3" x1="230" y1="85" x2="290" y2="85" class="wire-off"/>
+          <!-- Coil: M-OPEN -->
+          <circle id="coil-open" cx="308" cy="85" r="14" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+          <text x="308" y="83" text-anchor="middle" class="component-label" font-size="7">M-AB</text>
+          <text x="308" y="92" text-anchor="middle" class="component-value" font-size="6">Motor</text>
+          <!-- Down to neutral -->
+          <line id="b1-bot" x1="308" y1="99" x2="308" y2="295" class="wire-off"/>
+          <!-- Node dot -->
+          <circle id="n1" cx="60" cy="55" r="3" class="node-inactive"/>
+ 
+          <!-- BRANCH 2: Limit SW Close + Motor Close coil -->
+          <line id="b2-top" x1="60" y1="55" x2="60" y2="130" class="wire-off"/>
+          <line id="b2-down" x1="60" y1="130" x2="60" y2="145" class="wire-off"/>
+          <!-- LS_CLOSE -->
+          <rect id="ls-close-box" x="45" y="145" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="60" y="153" text-anchor="middle" class="component-label" font-size="7">LS-C</text>
+          <text x="60" y="173" text-anchor="middle" class="component-value">Lím.Cerrad</text>
+          <line id="ls-close-l" x1="45" y1="155" x2="55" y2="155" class="wire-off"/>
+          <line id="ls-close-r" x1="65" y1="155" x2="75" y2="155" class="wire-off"/>
+          <!-- Interlock: M-OPEN (NC) -->
+          <line id="b2-h" x1="75" y1="155" x2="120" y2="155" class="wire-off"/>
+          <rect id="ilk-box" x="120" y="145" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="135" y="153" text-anchor="middle" class="component-label" font-size="7">ILK-A</text>
+          <text x="135" y="173" text-anchor="middle" class="component-value">Interlock</text>
+          <line id="ilk-r" x1="150" y1="155" x2="200" y2="155" class="wire-off"/>
+          <!-- PB CLOSE -->
+          <rect id="pb-close-box" x="200" y="145" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="215" y="153" text-anchor="middle" class="component-label" font-size="7">PB-CE</text>
+          <text x="215" y="173" text-anchor="middle" class="component-value">Pulsador</text>
+          <line id="pb-close-r" x1="230" y1="155" x2="290" y2="155" class="wire-off"/>
+          <!-- Coil: M-CLOSE -->
+          <circle id="coil-close" cx="308" cy="155" r="14" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+          <text x="308" y="153" text-anchor="middle" class="component-label" font-size="7">M-CE</text>
+          <text x="308" y="162" text-anchor="middle" class="component-value" font-size="6">Motor</text>
+          <line id="b2-bot" x1="308" y1="169" x2="308" y2="295" class="wire-off"/>
+ 
+          <!-- BRANCH 3: Safety Circuit -->
+          <line id="b3-top" x1="60" y1="55" x2="60" y2="200" class="wire-off"/>
+          <line id="b3-down" x1="60" y1="200" x2="60" y2="215" class="wire-off"/>
+          <!-- Safety edge -->
+          <rect id="safe-box" x="45" y="215" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="60" y="223" text-anchor="middle" class="component-label" font-size="7">SE-01</text>
+          <text x="60" y="243" text-anchor="middle" class="component-value">Borde Seg.</text>
+          <line id="safe-l" x1="45" y1="225" x2="55" y2="225" class="wire-off"/>
+          <line id="safe-r" x1="65" y1="225" x2="75" y2="225" class="wire-off"/>
+          <!-- Photocell -->
+          <line id="b3-h" x1="75" y1="225" x2="120" y2="225" class="wire-off"/>
+          <rect id="photo-box" x="120" y="215" width="30" height="20" fill="none" stroke="#2a3555" stroke-width="1" rx="2"/>
+          <text x="135" y="223" text-anchor="middle" class="component-label" font-size="7">FC-01</text>
+          <text x="135" y="243" text-anchor="middle" class="component-value">Fotocelda</text>
+          <line id="photo-r" x1="150" y1="225" x2="200" y2="225" class="wire-off"/>
+          <!-- Safety relay coil -->
+          <circle id="coil-safe" cx="220" cy="225" r="14" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+          <text x="220" y="223" text-anchor="middle" class="component-label" font-size="7">CR-SEG</text>
+          <text x="220" y="232" text-anchor="middle" class="component-value" font-size="6">Relé Seg.</text>
+          <line id="b3-bot" x1="220" y1="239" x2="220" y2="295" class="wire-off"/>
+          <!-- Node on left bus -->
+          <circle id="n2" cx="60" cy="130" r="3" class="node-inactive"/>
+          <circle id="n3" cx="60" cy="200" r="3" class="node-inactive"/>
+ 
+          <!-- LEGEND -->
+          <rect x="250" y="200" width="130" height="85" fill="#080d18" stroke="#1e2d5a" stroke-width=".5" rx="4"/>
+          <text x="315" y="215" text-anchor="middle" class="component-label" letter-spacing="2">LEYENDA</text>
+          <line x1="260" y1="225" x2="285" y2="225" stroke="#ff6b35" stroke-width="2" fill="none"/>
+          <text x="292" y="228" class="component-value" font-size="8" fill="#8899bb">Línea Viva</text>
+          <line x1="260" y1="240" x2="285" y2="240" stroke="#4488ff" stroke-width="2" fill="none"/>
+          <text x="292" y="243" class="component-value" font-size="8" fill="#8899bb">Neutro</text>
+          <line x1="260" y1="255" x2="285" y2="255" stroke="#ffcc00" stroke-width="1.5" stroke-dasharray="4,2" fill="none"/>
+          <text x="292" y="258" class="component-value" font-size="8" fill="#8899bb">Señal/Control</text>
+          <line x1="260" y1="270" x2="285" y2="270" stroke="#44cc66" stroke-width="1.5" fill="none"/>
+          <text x="292" y="273" class="component-value" font-size="8" fill="#8899bb">Tierra</text>
+ 
+          <!-- Current flow arrows on live bus when active -->
+          <line id="flow-live" x1="30" y1="55" x2="358" y2="55"
+            stroke="#ff6b35" stroke-width="2.5" fill="none"
+            stroke-dasharray="8 4" opacity="0"
+            style="animation: flowL .6s linear infinite;"/>
+ 
+        </svg>
+      </div>
+ 
+      <div class="sep"></div>
+ 
+      <!-- Ladder Logic -->
+      <div class="ladder-title">◈ Diagrama Escalera (Ladder PLC)</div>
+      <svg id="ladder-svg" viewBox="0 0 388 200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="388" height="200" fill="#060b14"/>
+ 
+        <!-- Bus bars -->
+        <line x1="30" y1="20" x2="30" y2="185" stroke="#4488ff" stroke-width="3" fill="none"/>
+        <line x1="358" y1="20" x2="358" y2="185" stroke="#ff6b35" stroke-width="3" fill="none"/>
+        <text x="15" y="14" font-family="'Share Tech Mono',monospace" font-size="9" fill="#4488ff">L</text>
+        <text x="352" y="14" font-family="'Share Tech Mono',monospace" font-size="9" fill="#ff6b35">N</text>
+ 
+        <!-- RUNG 1: OPEN logic -->
+        <line id="r1-main" x1="30" y1="50" x2="358" y2="50" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <!-- PB_OPEN contact -->
+        <line id="r1-l1" x1="50" y1="42" x2="50" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r1-r1" x1="70" y1="42" x2="70" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <text x="60" y="38" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">PB_AB</text>
+        <!-- CR_A seal contact -->
+        <line id="r1-l2" x1="120" y1="42" x2="120" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r1-r2" x1="140" y1="42" x2="140" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <text x="130" y="38" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">CR_AB</text>
+        <!-- LS_OPEN NC -->
+        <line id="r1-l3" x1="190" y1="42" x2="190" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r1-r3" x1="210" y1="42" x2="210" y2="58" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <!-- NC slash -->
+        <line id="r1-nc" x1="186" y1="58" x2="214" y2="42" stroke="#2a3555" stroke-width="1" fill="none"/>
+        <text x="200" y="38" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">LS_AB</text>
+        <!-- Output coil OPEN -->
+        <circle id="lad-coil-open" cx="330" cy="50" r="12" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+        <text x="330" y="48" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">M_AB</text>
+        <text x="330" y="57" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="7" fill="#2a3555">Abrir</text>
+        <text x="10" y="52" font-family="'Share Tech Mono',monospace" font-size="8" fill="#2a3555">R1</text>
+ 
+        <!-- RUNG 2: CLOSE logic -->
+        <line id="r2-main" x1="30" y1="110" x2="358" y2="110" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <!-- PB_CLOSE -->
+        <line id="r2-l1" x1="50" y1="102" x2="50" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r2-r1" x1="70" y1="102" x2="70" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <text x="60" y="98" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">PB_CE</text>
+        <!-- Interlock M_OPEN NC -->
+        <line id="r2-l2" x1="120" y1="102" x2="120" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r2-r2" x1="140" y1="102" x2="140" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r2-nc" x1="116" y1="118" x2="144" y2="102" stroke="#2a3555" stroke-width="1" fill="none"/>
+        <text x="130" y="98" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">ILK_AB</text>
+        <!-- LS_CLOSE NC -->
+        <line id="r2-l3" x1="190" y1="102" x2="190" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r2-r3" x1="210" y1="102" x2="210" y2="118" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r2-nc2" x1="186" y1="118" x2="214" y2="102" stroke="#2a3555" stroke-width="1" fill="none"/>
+        <text x="200" y="98" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">LS_CE</text>
+        <!-- Output coil CLOSE -->
+        <circle id="lad-coil-close" cx="330" cy="110" r="12" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+        <text x="330" y="108" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">M_CE</text>
+        <text x="330" y="117" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="7" fill="#2a3555">Cerrar</text>
+        <text x="10" y="112" font-family="'Share Tech Mono',monospace" font-size="8" fill="#2a3555">R2</text>
+ 
+        <!-- RUNG 3: Safety -->
+        <line id="r3-main" x1="30" y1="165" x2="358" y2="165" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r3-l1" x1="50" y1="157" x2="50" y2="173" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r3-r1" x1="70" y1="157" x2="70" y2="173" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <text x="60" y="153" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">SE_01</text>
+        <line id="r3-l2" x1="120" y1="157" x2="120" y2="173" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <line id="r3-r2" x1="140" y1="157" x2="140" y2="173" stroke="#2a3555" stroke-width="1.5" fill="none"/>
+        <text x="130" y="153" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">FC_01</text>
+        <circle id="lad-coil-safe" cx="330" cy="165" r="12" fill="none" stroke="#2a3555" stroke-width="1.5"/>
+        <text x="330" y="163" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="8" fill="#3a4d6a">CR_SEG</text>
+        <text x="10" y="167" font-family="'Share Tech Mono',monospace" font-size="8" fill="#2a3555">R3</text>
+      </svg>
+ 
+      <div class="sep"></div>
+ 
+      <!-- I/O Table -->
+      <div style="padding: 14px 16px 8px;">
+        <div class="circuit-title">◈ Tabla de Entradas / Salidas (I/O)</div>
+      </div>
+      <div class="io-table">
+        <div class="io-row io-header">
+          <span>ADDR</span><span>DESCRIPCIÓN</span><span>ESTADO</span><span>VALOR</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.0</span>
+          <span class="io-name">PB Abrir</span>
+          <span class="io-state-off" id="io-pb-open"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.1</span>
+          <span class="io-name">PB Cerrar</span>
+          <span class="io-state-off" id="io-pb-close"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.2</span>
+          <span class="io-name">Lim. Abierto</span>
+          <span class="io-state-off" id="io-ls-open"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.3</span>
+          <span class="io-name">Lim. Cerrado</span>
+          <span class="io-state-on" id="io-ls-close"><span class="led led-on"></span>ON</span>
+          <span class="io-val">0xFF</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.4</span>
+          <span class="io-name">Borde Seg.</span>
+          <span class="io-state-on" id="io-safe"><span class="led led-on"></span>OK</span>
+          <span class="io-val">0xFF</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">I0.5</span>
+          <span class="io-name">Fotocelda</span>
+          <span class="io-state-on" id="io-photo"><span class="led led-on"></span>LIBRE</span>
+          <span class="io-val">0xFF</span>
+        </div>
+        <div class="io-row" style="border-top:1px solid var(--border);">
+          <span class="io-addr">Q0.0</span>
+          <span class="io-name">Motor Abrir</span>
+          <span class="io-state-off" id="io-m-open"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">Q0.1</span>
+          <span class="io-name">Motor Cerrar</span>
+          <span class="io-state-off" id="io-m-close"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+        <div class="io-row">
+          <span class="io-addr">Q0.2</span>
+          <span class="io-name">Alarm. Seg.</span>
+          <span class="io-state-off" id="io-alarm"><span class="led led-off"></span>OFF</span>
+          <span class="io-val">0x00</span>
+        </div>
+      </div>
+ 
+      <!-- Metrics -->
+      <div class="timer-section">
+        <div class="metric-card">
+          <div class="metric-label">Ciclos Totales</div>
+          <div class="metric-value" id="m-cycles">000</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Estado Puerta</div>
+          <div class="metric-value green" id="m-door-state">CERRADA</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Temporizador</div>
+          <div class="metric-value yellow" id="m-timer">0.0s</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Piso Actual</div>
+          <div class="metric-value" id="m-floor">01</div>
+        </div>
+      </div>
+ 
+      <!-- Event Log -->
+      <div class="log-section">
+        <div class="log-header">
+          <span>▸ Registro de Eventos</span>
+          <span style="color:var(--green);font-size:10px" id="log-count">0 eventos</span>
+        </div>
+        <div class="log-entries" id="log-entries"></div>
+      </div>
+ 
+    </div>
+  </div>
+</div>
+ 
+<script>
+// ==================== STATE ====================
+const state = {
+  doorOpen: false,
+  doorMoving: false,
+  doorState: 'CERRADA', // CERRADA, ABRIENDO, ABIERTA, CERRANDO
+  currentFloor: 1,
+  targetFloor: 1,
+  cycles: 0,
+  emergency: false,
+  safetyOk: true,
+  photoOk: true,
+  timerVal: 0,
+  timerInterval: null,
+  holdTimer: null,
+  openDuration: 3000,
+  closeDuration: 3000,
+  holdDuration: 5000,
+  motorSpeed: 80,
+  logCount: 0,
+};
+ 
+// ==================== CLOCK ====================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock-display').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+ 
+// ==================== LOGGING ====================
+function addLog(msg, type='') {
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const container = document.getElementById('log-entries');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${ts}</span><span class="log-msg ${type}">${msg}</span>`;
+  container.insertBefore(entry, container.firstChild);
+  state.logCount++;
+  document.getElementById('log-count').textContent = `${state.logCount} eventos`;
+  // Keep max 50 entries
+  while (container.children.length > 50) container.removeChild(container.lastChild);
+}
+ 
+// ==================== CIRCUIT HELPERS ====================
+function setWire(id, active, blue=false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (active) {
+    el.setAttribute('class', blue ? 'flowing-blue' : 'flowing-live');
+  } else {
+    el.setAttribute('class', 'wire-off');
+    el.style.animation = '';
+  }
+}
+ 
+function setContact(ids, active) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (active) {
+      el.setAttribute('stroke', '#00ff88');
+      el.setAttribute('stroke-width', '1.5');
+    } else {
+      el.setAttribute('stroke', '#2a3555');
+      el.setAttribute('stroke-width', '1');
+    }
+  });
+}
+ 
+function setCoil(id, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (active) {
+    el.setAttribute('stroke', '#ff6b35');
+    el.setAttribute('fill', 'rgba(255,107,53,0.15)');
+    el.setAttribute('stroke-width', '2');
+  } else {
+    el.setAttribute('stroke', '#2a3555');
+    el.setAttribute('fill', 'none');
+    el.setAttribute('stroke-width', '1.5');
+  }
+}
+ 
+function setLadderRung(rung, active) {
+  const color = active ? '#00ff88' : '#2a3555';
+  const els = document.querySelectorAll(`[id^="r${rung}-"]`);
+  els.forEach(el => {
+    if (el.tagName === 'line') el.setAttribute('stroke', color);
+  });
+}
+ 
+function setLadderCoil(id, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('stroke', active ? '#ff6b35' : '#2a3555');
+  if (active) el.setAttribute('fill', 'rgba(255,107,53,.15)');
+  else el.setAttribute('fill', 'none');
+}
+ 
+function setNode(id, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('fill', active ? '#ff6b35' : '#2a3555');
+  el.style.filter = active ? 'drop-shadow(0 0 4px #ff6b35)' : '';
+}
+ 
+function setIO(id, on, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const led = el.querySelector('.led');
+  if (on) {
+    el.className = 'io-state-on';
+    led.className = 'led led-on';
+  } else {
+    el.className = 'io-state-off';
+    led.className = 'led led-off';
+  }
+  el.innerHTML = `<span class="led ${on ? 'led-on' : 'led-off'}"></span>${label}`;
+}
+ 
+function activateLiveBus(active) {
+  const bus = document.getElementById('bus-live');
+  const flow = document.getElementById('flow-live');
+  if (active) {
+    bus.setAttribute('class', 'wire-on');
+    flow.style.opacity = '1';
+  } else {
+    bus.setAttribute('class', 'wire-off');
+    flow.style.opacity = '0';
+  }
+  setNode('n1', active);
+  setNode('n2', active);
+  setNode('n3', active);
+}
+ 
+// ==================== CIRCUIT OPEN STATE ====================
+function circuitOpenState() {
+  // Live bus energized
+  activateLiveBus(true);
+  // Branch 1: opening circuit active
+  setWire('b1-top', true);
+  setWire('b1-h', true);
+  setWire('b1-h2', true);
+  setWire('b1-h3', true);
+  setWire('b1-bot', true, true);
+  setContact(['pb-open-box', 'seal-box'], true);
+  setContact(['ls-open-box'], false); // LS open not yet triggered
+  setCoil('coil-open', true);
+  // Branch 2: closing circuit off
+  setWire('b2-top', false);
+  setWire('b2-h', false);
+  setWire('pb-close-r', false);
+  setWire('b2-bot', false);
+  setCoil('coil-close', false);
+  // Branch 3: safety ok
+  setWire('b3-top', true);
+  setWire('b3-h', true);
+  setWire('photo-r', true);
+  setWire('b3-bot', true, true);
+  setCoil('coil-safe', true);
+  // Ladder
+  setLadderRung(1, true);
+  setLadderCoil('lad-coil-open', true);
+  setLadderRung(2, false);
+  setLadderCoil('lad-coil-close', false);
+  setLadderRung(3, true);
+  setLadderCoil('lad-coil-safe', true);
+  // I/O
+  setIO('io-pb-open', true, 'ON');
+  setIO('io-pb-close', false, 'OFF');
+  setIO('io-ls-open', false, 'OFF');
+  setIO('io-ls-close', true, 'ON');
+  setIO('io-m-open', true, 'ACTIVO');
+  setIO('io-m-close', false, 'OFF');
+  setIO('io-safe', true, 'OK');
+  setIO('io-photo', true, 'LIBRE');
+  setIO('io-alarm', false, 'OFF');
+}
+ 
+function circuitOpenedState() {
+  activateLiveBus(true);
+  // Branch 1: ls-open triggered → cuts power to motor
+  setWire('b1-top', true);
+  setWire('b1-h', false);
+  setWire('b1-h2', false);
+  setWire('b1-h3', false);
+  setWire('b1-bot', false);
+  setContact(['ls-open-box'], true);
+  setContact(['pb-open-box', 'seal-box'], false);
+  setCoil('coil-open', false);
+  // Ladder
+  setLadderRung(1, false);
+  setLadderCoil('lad-coil-open', false);
+  // I/O
+  setIO('io-pb-open', false, 'OFF');
+  setIO('io-ls-open', true, 'ACTIVO');
+  setIO('io-ls-close', false, 'OFF');
+  setIO('io-m-open', false, 'OFF');
+}
+ 
+function circuitCloseState() {
+  activateLiveBus(true);
+  // Branch 1: open off
+  setWire('b1-top', false);
+  setWire('b1-h', false);
+  setWire('b1-h2', false);
+  setWire('b1-h3', false);
+  setWire('b1-bot', false);
+  setCoil('coil-open', false);
+  setContact(['pb-open-box', 'seal-box', 'ls-open-box'], false);
+  // Branch 2: closing active
+  setWire('b2-top', true);
+  setWire('b2-down', true);
+  setWire('b2-h', true);
+  setWire('ilk-r', true);
+  setWire('pb-close-r', true);
+  setWire('b2-bot', true, true);
+  setContact(['ls-close-box', 'ilk-box', 'pb-close-box'], true);
+  setCoil('coil-close', true);
+  // Ladder
+  setLadderRung(1, false);
+  setLadderCoil('lad-coil-open', false);
+  setLadderRung(2, true);
+  setLadderCoil('lad-coil-close', true);
+  // I/O
+  setIO('io-pb-open', false, 'OFF');
+  setIO('io-pb-close', true, 'ON');
+  setIO('io-ls-open', true, 'ACTIVO');
+  setIO('io-ls-close', false, 'OFF');
+  setIO('io-m-open', false, 'OFF');
+  setIO('io-m-close', true, 'ACTIVO');
+}
+ 
+function circuitClosedState() {
+  activateLiveBus(true);
+  setWire('b2-top', false);
+  setWire('b2-h', false);
+  setWire('pb-close-r', false);
+  setWire('b2-bot', false);
+  setContact(['ls-close-box'], true);
+  setContact(['ilk-box', 'pb-close-box'], false);
+  setCoil('coil-close', false);
+  setLadderRung(2, false);
+  setLadderCoil('lad-coil-close', false);
+  setIO('io-pb-close', false, 'OFF');
+  setIO('io-ls-close', true, 'ACTIVO');
+  setIO('io-m-close', false, 'OFF');
+}
+ 
+function circuitIdleState() {
+  activateLiveBus(true);
+  // All branches off
+  ['b1-top','b1-h','b1-h2','b1-h3','b1-bot','b2-top','b2-down','b2-h','ilk-r','pb-close-r','b2-bot'].forEach(id => setWire(id, false));
+  ['coil-open','coil-close'].forEach(id => setCoil(id, false));
+  ['pb-open-box','seal-box','ls-open-box','ls-close-box','ilk-box','pb-close-box'].forEach(id => setContact([id], false));
+  setLadderRung(1, false); setLadderCoil('lad-coil-open', false);
+  setLadderRung(2, false); setLadderCoil('lad-coil-close', false);
+  setIO('io-pb-open', false, 'OFF');
+  setIO('io-pb-close', false, 'OFF');
+  setIO('io-ls-open', false, 'OFF');
+  setIO('io-ls-close', true, 'ON');
+  setIO('io-m-open', false, 'OFF');
+  setIO('io-m-close', false, 'OFF');
+  // Safety always on
+  setWire('b3-top', true);
+  setWire('b3-down', true);
+  setWire('b3-h', true);
+  setWire('photo-r', true);
+  setWire('b3-bot', true, true);
+  setCoil('coil-safe', true);
+  setLadderRung(3, true);
+  setLadderCoil('lad-coil-safe', true);
+  setIO('io-safe', true, 'OK');
+  setIO('io-photo', true, 'LIBRE');
+  setIO('io-alarm', false, 'OFF');
+}
+ 
+// ==================== TIMER ====================
+let timerStart = 0;
+let timerTarget = 0;
+function startTimer(duration, cb) {
+  clearTimer();
+  timerStart = Date.now();
+  timerTarget = duration;
+  state.timerInterval = setInterval(() => {
+    const elapsed = Date.now() - timerStart;
+    const remaining = Math.max(0, (timerTarget - elapsed) / 1000);
+    document.getElementById('m-timer').textContent = remaining.toFixed(1) + 's';
+    if (elapsed >= timerTarget) {
+      clearTimer();
+      if (cb) cb();
+    }
+  }, 50);
+}
+ 
+function clearTimer() {
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  document.getElementById('m-timer').textContent = '0.0s';
+}
+ 
+// ==================== DOOR CONTROL ====================
+function setDoorStatus(txt, color='') {
+  state.doorState = txt;
+  const el = document.getElementById('m-door-state');
+  el.textContent = txt;
+  el.className = 'metric-value ' + color;
+  document.getElementById('door-status-txt').textContent = `PUERTA ${txt}`;
+  // Header dot
+  const dot = document.getElementById('door-dot');
+  if (txt === 'ABIERTA') { dot.className = 'dot'; }
+  else if (txt === 'CERRADA') { dot.className = 'dot yellow'; }
+  else { dot.className = 'dot'; dot.style.background = '#ffcc00'; }
+}
+ 
+function setDoorDisplay(txt) {
+  document.getElementById('door-display').textContent = txt;
+}
+ 
+function openDoor() {
+  if (state.doorMoving || state.doorOpen || state.emergency) return;
+  state.doorMoving = true;
+  state.cycles++;
+  document.getElementById('m-cycles').textContent = String(state.cycles).padStart(3, '0');
+ 
+  addLog('Iniciando apertura de puerta', 'ok');
+  setDoorStatus('ABRIENDO', 'yellow');
+  setDoorDisplay('◁◁');
+ 
+  // Circuit: open state
+  circuitOpenState();
+ 
+  // Animate door
+  document.getElementById('door-right').classList.add('open');
+  document.getElementById('beam').classList.add('active');
+ 
+  // Highlight open buttons
+  document.getElementById('btn-open-door').classList.add('active');
+ 
+  // Timer for opening
+  startTimer(state.openDuration, () => {
+    state.doorOpen = true;
+    state.doorMoving = false;
+    setDoorStatus('ABIERTA', 'green');
+    setDoorDisplay('◁  ▷');
+    document.getElementById('btn-open-door').classList.remove('active');
+    circuitOpenedState();
+    addLog('Puerta completamente abierta — LS-Abierto activado', 'ok');
+ 
+    // Auto-close after hold time
+    state.holdTimer = setTimeout(() => {
+      closeDoor();
+    }, state.holdDuration);
+  });
+}
+ 
+function closeDoor() {
+  if (state.doorMoving || !state.doorOpen || state.emergency) return;
+  if (state.holdTimer) { clearTimeout(state.holdTimer); state.holdTimer = null; }
+ 
+  state.doorMoving = true;
+  addLog('Iniciando cierre de puerta', 'warn');
+  setDoorStatus('CERRANDO', 'yellow');
+  setDoorDisplay('▷▷');
+ 
+  circuitCloseState();
+ 
+  document.getElementById('btn-close-door').classList.add('active');
+ 
+  // Remove beam after brief delay (simulating door closing)
+  setTimeout(() => {
+    document.getElementById('beam').classList.remove('active');
+  }, 500);
+ 
+  // Animate door close
+  document.getElementById('door-right').classList.remove('open');
+ 
+  startTimer(state.closeDuration, () => {
+    state.doorOpen = false;
+    state.doorMoving = false;
+    setDoorStatus('CERRADA', '');
+    setDoorDisplay('▶◀');
+    document.getElementById('btn-close-door').classList.remove('active');
+    circuitClosedState();
+    addLog('Puerta completamente cerrada — LS-Cerrado activado', 'ok');
+ 
+    // Return to idle after brief delay
+    setTimeout(() => {
+      circuitIdleState();
+    }, 500);
+  });
+}
+ 
+function emergencyStop() {
+  if (state.holdTimer) { clearTimeout(state.holdTimer); state.holdTimer = null; }
+  clearTimer();
+ 
+  state.emergency = !state.emergency;
+ 
+  if (state.emergency) {
+    state.doorMoving = false;
+    addLog('⚠ PARO DE EMERGENCIA ACTIVADO', 'err');
+    setDoorStatus('EMERGENCIA', 'red');
+    setDoorDisplay('⚠');
+    document.getElementById('sys-status').textContent = 'EMERGENCIA';
+    document.getElementById('sys-dot').className = 'dot red';
+    setIO('io-alarm', true, 'ALARM');
+ 
+    // Stop door animation mid-way if moving
+    const doorRight = document.getElementById('door-right');
+    const computed = window.getComputedStyle(doorRight);
+    doorRight.style.transition = 'none';
+    doorRight.style.transform = computed.transform;
+ 
+    // Kill all circuit
+    activateLiveBus(false);
+    setLadderRung(1, false); setLadderCoil('lad-coil-open', false);
+    setLadderRung(2, false); setLadderCoil('lad-coil-close', false);
+    setLadderRung(3, false); setLadderCoil('lad-coil-safe', false);
+  } else {
+    state.emergency = false;
+    addLog('Sistema restablecido — paro de emergencia desactivado', 'ok');
+    document.getElementById('sys-status').textContent = 'SISTEMA OK';
+    document.getElementById('sys-dot').className = 'dot';
+    setIO('io-alarm', false, 'OFF');
+    // Reset door to closed
+    const doorRight = document.getElementById('door-right');
+    doorRight.style.transition = `transform ${state.closeDuration/1000}s cubic-bezier(0.4,0,0.2,1)`;
+    doorRight.classList.remove('open');
+    state.doorOpen = false;
+    setDoorStatus('CERRADA', '');
+    setDoorDisplay('▶◀');
+    circuitIdleState();
+  }
+}
+ 
+// ==================== FLOOR CONTROL ====================
+function goFloor(floor) {
+  if (state.doorOpen) closeDoor();
+  state.currentFloor = floor;
+  document.getElementById('floor-num').textContent = String(floor).padStart(2, '0');
+  document.getElementById('m-floor').textContent = String(floor).padStart(2, '0');
+  document.getElementById('fl-label').textContent = `PISO ${floor} ↑`;
+ 
+  // Update floor buttons
+  for (let i = 1; i <= 4; i++) {
+    const btn = document.getElementById(`fbtn-${i}`);
+    if (btn) btn.className = 'floor-btn' + (i === floor ? ' active' : '');
+  }
+ 
+  addLog(`Moviendo a piso ${floor}`, '');
+ 
+  // Auto open when arriving
+  setTimeout(() => {
+    addLog(`Llegó a piso ${floor}`, 'ok');
+    openDoor();
+  }, 1200);
+}
+ 
+// ==================== PARAMS ====================
+function applyParams() {
+  state.openDuration = parseFloat(document.getElementById('p-open').value) * 1000;
+  state.closeDuration = parseFloat(document.getElementById('p-close').value) * 1000;
+  state.holdDuration = parseFloat(document.getElementById('p-hold').value) * 1000;
+  state.motorSpeed = parseInt(document.getElementById('p-speed').value);
+  addLog(`Parámetros actualizados: Apertura=${state.openDuration/1000}s, Cierre=${state.closeDuration/1000}s, Espera=${state.holdDuration/1000}s`, 'ok');
+ 
+  // Update door transition speed
+  document.getElementById('door-right').style.transition = `transform ${state.closeDuration/1000}s cubic-bezier(0.4,0,0.2,1)`;
+}
+ 
+// ==================== INIT ====================
+circuitIdleState();
+addLog('Sistema iniciado — PLC listo', 'ok');
+addLog('Puerta en posición cerrada', 'ok');
+addLog('Todos los sensores OK', 'ok');
+</script>
+ 
+</body>
+</html>
